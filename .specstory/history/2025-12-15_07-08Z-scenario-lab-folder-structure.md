@@ -12204,3 +12204,146 @@ Now `python -m pytest apps/shop-app` (and `python harness/run_scenario.py ...`) 
 
 ---
 
+_**User (2025-12-15 07:08Z)**_
+
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-7.4.4, pluggy-1.6.0
+rootdir: /home/runner/work/zeroui-scenario-lab-01/zeroui-scenario-lab-01
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+______________ ERROR collecting apps/shop-app/tests/test_basic.py ______________
+ImportError while importing test module '/home/runner/work/zeroui-scenario-lab-01/zeroui-scenario-lab-01/apps/shop-app/tests/test_basic.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.14/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+apps/shop-app/tests/test_basic.py:5: in <module>
+    from apps.shop_app.app import app
+E   ModuleNotFoundError: No module named 'apps.shop_app'
+=========================== short test summary info ============================
+ERROR apps/shop-app/tests/test_basic.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.08s ===============================
+
+fix this issue
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Adding shim package for hyphenated folder import**
+
+Planning to create an `apps/shop_app` folder with `__init__.py` and an `app.py` shim that adjusts `sys.path` to import the actual app from `apps/shop-app` to fix pytest import errors caused by the hyphen in the folder name.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="apply_patch">
+<details>
+<summary>Tool use: **apply_patch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "apps/shop_app/__init__.py"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "46277979-ac8c-42ec-a5bd-3f708ab265b8"
+}
+```
+Result:
+
+```json
+{
+  "diff": {
+    "chunks": [
+      {
+        "diffString": "- \n+ \"\"\"Shim package to import shop-app module with hyphenated directory.\"\"\"\n+ ",
+        "oldStart": 1,
+        "newStart": 1,
+        "oldLines": 1,
+        "newLines": 2,
+        "linesRemoved": 1,
+        "linesAdded": 2
+      }
+    ],
+    "editor": "EDITOR_AI"
+  },
+  "shouldAutoFixLints": true,
+  "resultForModel": "Success. Updated the following files:\nM apps/shop_app/__init__.py",
+  "contentsAfterEdit": "\"\"\"Shim package to import shop-app module with hyphenated directory.\"\"\"\r\n\r\n"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="apply_patch">
+<details>
+<summary>Tool use: **apply_patch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "apps/shop_app/app.py"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "6507594d-241b-4501-8acc-71d3c4d98b20"
+}
+```
+Result:
+
+```json
+{
+  "diff": {
+    "chunks": [
+      {
+        "diffString": "- \n+ \"\"\"\n+ Shim loader so that imports work despite the hyphenated directory &#96;shop-app&#96;.\n+ This ensures &#96;from apps.shop_app.app import app&#96; succeeds in pytest and CI.\n+ \"\"\"\n+ from __future__ import annotations\n+ \n+ import sys\n+ from pathlib import Path\n+ \n+ # Point to the actual source file under apps/shop-app/app.py\n+ _real_dir = Path(__file__).resolve().parent.parent / \"shop-app\"\n+ if str(_real_dir) not in sys.path:\n+     sys.path.insert(0, str(_real_dir))\n+ \n+ from app import app  # type: ignore  # noqa: E402,F401\n+ ",
+        "oldStart": 1,
+        "newStart": 1,
+        "oldLines": 1,
+        "newLines": 16,
+        "linesRemoved": 1,
+        "linesAdded": 16
+      }
+    ],
+    "editor": "EDITOR_AI"
+  },
+  "shouldAutoFixLints": true,
+  "resultForModel": "Success. Updated the following files:\nM apps/shop_app/app.py",
+  "contentsAfterEdit": "\"\"\"\r\nShim loader so that imports work despite the hyphenated directory &#96;shop-app&#96;.\r\nThis ensures &#96;from apps.shop_app.app import app&#96; succeeds in pytest and CI.\r\n\"\"\"\r\nfrom __future__ import annotations\r\n\r\nimport sys\r\nfrom pathlib import Path\r\n\r\n# Point to the actual source file under apps/shop-app/app.py\r\n_real_dir = Path(__file__).resolve().parent.parent / \"shop-app\"\r\nif str(_real_dir) not in sys.path:\r\n    sys.path.insert(0, str(_real_dir))\r\n\r\nfrom app import app  # type: ignore  # noqa: E402,F401\r\n\r\n"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
