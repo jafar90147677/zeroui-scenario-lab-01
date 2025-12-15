@@ -263,7 +263,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def run_tests() -> int:
     """Run pytest for shop-app; return exit code."""
     cmd = [sys.executable, "-m", "pytest", "apps/shop-app"]
-    proc = subprocess.run(cmd, cwd=REPO_ROOT)
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, env=env)
     return proc.returncode
 
 
