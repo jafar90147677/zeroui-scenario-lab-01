@@ -1,0 +1,26 @@
+id: FM1-flag-kill-switch
+module: shop-app
+archetype: resilience
+description: Record a feature-flag kill switch action and surface it via observability/incident artifacts.
+mutation_targets:
+  - apps/shop-app/app.py
+signal_emitters:
+  observability:
+    signals:
+      - "flag-disabled"
+    flag_action: "kill-switch:checkout"
+  incident:
+    should_create: true
+    severity: medium
+    title: "feature flag kill switch activated"
+    flag_action: "kill-switch:checkout"
+expected_zeroui_response:
+  pills:
+    - "flag-disabled"
+  gates:
+    - "feature-blocked"
+  classification: "resilience"
+  links:
+    - "runbook://flag-kill-switch"
+teardown_reset: "Harness reset restores clean repo (git restore . && git clean -fd)"
+

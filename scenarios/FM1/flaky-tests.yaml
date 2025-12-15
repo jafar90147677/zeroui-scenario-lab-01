@@ -1,0 +1,28 @@
+id: FM1-flaky-tests
+module: shop-app
+archetype: quality
+description: Introduce a controlled flaky health test to exercise detection and reset.
+mutation_targets:
+  - apps/shop-app/tests/test_basic.py
+signal_emitters:
+  ci:
+    exit_code: 0
+    message: "flaky test detected but allowed for sandbox"
+  observability:
+    signals:
+      - "flaky-test-signal"
+  incident:
+    should_create: false
+    severity: low
+    title: "no incident for flake"
+expected_zeroui_response:
+  pills:
+    - "ci-failed"
+    - "flaky-detected"
+  gates:
+    - "needs-deflake"
+  classification: "quality-risk"
+  links:
+    - "runbook://flaky-tests"
+teardown_reset: "Harness reset restores clean repo (git restore . && git clean -fd)"
+
