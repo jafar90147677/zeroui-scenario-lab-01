@@ -38,5 +38,5 @@ Product repo integration is deferred; when needed, configure external connection
 - ZeroUI placeholder call: set `ZEROUI_API_URL` to a reachable endpoint.
 - Unleash feature check: set `UNLEASH_URL`, `UNLEASH_TOKEN`, and `UNLEASH_FEATURE` to log enabled status (no effect on PASS/FAIL).
 - ZeroUI validation: set `ZEROUI_VALIDATE_URL` (and optional `ZEROUI_VALIDATE_TOKEN`); payload is `expected_zeroui_response`. Set `ZEROUI_VALIDATE_STRICT=true` to mark FAIL on non-2xx.
-- Outbound hooks (optional): `CI_WEBHOOK_URL`/`CI_WEBHOOK_TOKEN`, `OBS_WEBHOOK_URL`/`OBS_WEBHOOK_TOKEN`, `INCIDENT_WEBHOOK_URL`/`INCIDENT_WEBHOOK_TOKEN` to receive stub resultsnn.
+- Outbound hooks (optional): `CI_WEBHOOK_URL`/`CI_WEBHOOK_TOKEN`, `OBS_WEBHOOK_URL`/`OBS_WEBHOOK_TOKEN`, `INCIDENT_WEBHOOK_URL`/`INCIDENT_WEBHOOK_TOKEN` to receive stub results.
 
