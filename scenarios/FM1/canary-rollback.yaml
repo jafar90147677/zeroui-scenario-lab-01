@@ -1,0 +1,29 @@
+id: FM1-canary-rollback
+module: shop-app
+archetype: release
+description: Simulate a canary failure that requires rollback and emits observability/incident signals.
+mutation_targets:
+  - apps/shop-app/app.py
+signal_emitters:
+  ci:
+    exit_code: 0
+    message: "canary failed; rollback initiated (sandbox allowed)"
+  observability:
+    signals:
+      - "canary-error-rate"
+      - "canary-latency-spike"
+  incident:
+    should_create: true
+    severity: high
+    title: "canary rollback triggered"
+expected_zeroui_response:
+  pills:
+    - "ci-failed"
+    - "rollback-triggered"
+  gates:
+    - "block-promotion"
+  classification: "release-risk"
+  links:
+    - "runbook://canary-rollback"
+teardown_reset: "Harness reset restores clean repo (git restore . && git clean -fd)"
+
