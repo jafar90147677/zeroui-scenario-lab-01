@@ -1,0 +1,25 @@
+id: FM3-placeholder
+module: FM3
+archetype: TODO-archetype
+description: TODO-describe-scenario
+mutation_targets:
+  - TODO-path
+signal_emitters:
+  ci:
+    exit_code: 0
+    message: TODO-ci-message
+  observability:
+    signals:
+      - TODO-signal
+  incident:
+    should_create: false
+expected_zeroui_response:
+  pills:
+    - TODO-pill
+  gates:
+    - TODO-gate
+  classification: TODO-classification
+  links:
+    - TODO-link
+teardown_reset: Harness reset restores clean repo
+
