@@ -17625,9 +17625,25 @@ contactPoints:
 
 ---
 
-_**Agent (model gpt-5.1-codex-max, mode Ask)**_
+_**Agent (model gpt-5.1-codex-max, mode Agent)**_
 
-Your current contact point YAML only defines an email receiver. To post observability/incident events from the harness to Grafana/Alertmanager, you need a webhook receiver. Add another contact point of type `webhook` with the destination URL (Alertmanager or your chosen webhook). For example:
+<think><details><summary>Thought Process</summary>
+**Providing webhook contact point instructions**
+
+Suggest adding a webhook contact point alongside the existing email in the Grafana provisioning YAML by creating a new contact point block with a placeholder URL, then reloading Grafana; include a clear example snippet and explain placement in the provisioning file.</details></think>
+
+---
+
+You currently have only an email contact point provisioned. To add a webhook contact point (so you can send alerts to Alertmanager or any receiver):
+
+Option A: via Grafana UI
+1) Alerting → Contact points → Add contact point.
+2) Set Type = Webhook.
+3) Paste your destination URL (e.g., your Alertmanager `http://<host>:9093/api/v2/alerts` or another receiver).
+4) Save.
+
+Option B: via provisioning file
+Add a second contact point with type `webhook` alongside your email entry:
 
 ```yaml
 apiVersion: 1
@@ -17643,17 +17659,657 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
-    name: grafana-observability-webhook
+    name: lab-webhook
     receivers:
-      - uid: <generate-uid>
-        type: webhook
+      - type: webhook
         settings:
-          # Replace with your destination, e.g., Alertmanager:
-          url: http://localhost:9093/api/v2/alerts
+          url: http://<your-destination-url>   # replace with your real webhook endpoint
+          httpMethod: POST
         disableResolveMessage: false
 ```
 
-If your Alertmanager is at a different host/port or behind a proxy, set the correct URL. If you have no Alertmanager, use any webhook endpoint you control. After adding this, set `OBS_WEBHOOK_URL` to the same URL (and `OBS_WEBHOOK_TOKEN` if your receiver needs auth) before running the harness.
+Then restart Grafana to apply provisioning changes.
+
+Important: You must supply a real destination URL (e.g., your Alertmanager or another webhook receiver). If you don’t have one yet, leave the webhook contact point out and continue using the JSONL artifacts from the harness.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+can you able to do for me
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Preparing placeholder provisioning snippet**
+
+Since no Alertmanager URL or provisioning directory is known, I'll provide a ready-to-paste YAML snippet with a placeholder URL and step-by-step instructions for the user to add it to their config.</details></think>
+
+---
+
+I can’t safely wire the webhook without a real destination URL. You’ll need to decide where Grafana should POST alerts (e.g., your Alertmanager endpoint or another receiver). Once you have that URL, you can add a webhook contact point alongside your existing email one. Here’s the exact provisioning snippet to use—just replace `<your-destination-url>` with your actual webhook endpoint:
+
+```yaml
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: grafana-default-email
+    receivers:
+      - uid: af78qyr8ey8zkd
+        type: email
+        settings:
+          addresses: mjafarsadiqe@gmail.com
+          singleEmail: false
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: lab-webhook
+    receivers:
+      - type: webhook
+        settings:
+          url: http://<your-destination-url>  # e.g., http://localhost:9093/api/v2/alerts
+          httpMethod: POST
+        disableResolveMessage: false
+```
+
+How to apply:
+1) Save this YAML in your Grafana provisioning contact points file (e.g., `provisioning/contact-points/*.yaml`), or add it via Alerting → Contact points in the UI (Type = Webhook, paste your URL).
+2) Restart Grafana to apply provisioning changes (if using file).
+3) In your Notification policy, route alerts to `lab-webhook`.
+
+If you tell me the actual webhook URL (and any auth header), I can give you a fully filled snippet.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+i dont know where is my real destination URL.
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Ask)**_
+
+If you don’t have a webhook endpoint yet, pick one of these options:
+
+- Use Alertmanager (common for alert webhooks): if you’re running Alertmanager locally, its default endpoint is `http://localhost:9093/api/v2/alerts`. Use that as the URL.
+- Use a temporary receiver to test: create a request bin (e.g., webhook.site) and paste that URL. You’ll see the posted payloads.
+- If you don’t need a webhook right now, leave it unset and keep relying on the harness JSONL artifacts until you have a real endpoint.
+
+Once you have a URL (Alertmanager or request bin), add it as the webhook URL in Grafana’s contact point.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+see i have done like this.Strict, careful processing demanded: Think innovatively, critically and do the asked task like no one has done before. We want to be pioneers in innovation. no hallucination, no sycophancy, no fiction. Deliver 10/10 Gold Standard Quality with elimination of all false positives. Do what is asked.100% Accurate response, inferences from Industry best practices where it is necessary, no artificial.
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Ask)**_
+
+<think><details><summary>Thought Process</summary>
+**Explaining webhook setup and alertmanager integration**
+
+The user set the webhook to Alertmanager's endpoint but the harness sends a simple payload not compatible with Alertmanager's alert list format. I'll explain how to ensure Alertmanager runs and is reachable, map ports, configure a notification policy routing alerts to the webhook contact, and optionally create sample alerts. I'll clarify the harness's default payload doesn't trigger Alertmanager processing and it requires setting the webhook URL and adapting payload format externally.</details></think>
+
+---
+
+Your Grafana contact point is now set to Alertmanager at `http://localhost:9093/api/v2/alerts`, but it’s still “Unused” because no alert rule is routed to it and no alerts have fired yet. Do these steps to make it active:
+
+1) Make sure Alertmanager is actually reachable on that URL/port from Grafana (e.g., `curl http://localhost:9093/api/v2/status` from the Grafana host). If Alertmanager runs in Docker, confirm the port is published and the hostname/port are correct from Grafana’s perspective (use the container name or mapped host port).
+
+2) Create or edit a notification policy to route alerts to this contact point:
+   - Grafana UI → Alerting → Notification policies → add a rule that sends alerts to `Webhook-1`.
+   - If you have no alert rules, create a simple test alert (Grafana Alerting → Alert rules), then ensure it uses that policy.
+
+3) Trigger a test alert:
+   - Temporarily set a threshold/condition that will fire immediately, or use the “Test” function in the contact point if available.
+   - Once an alert fires, you should see “delivery attempts” increment and entries in Alertmanager.
+
+If you instead want the harness to post observability events directly to Alertmanager, note that Alertmanager expects an array of alert objects. You would set `OBS_WEBHOOK_URL=http://localhost:9093/api/v2/alerts` and send a payload shaped like:
+```json
+[
+  {
+    "labels": {
+      "alertname": "scenario_observability",
+      "scenario_id": "FM1-flaky-tests",
+      "severity": "warning"
+    },
+    "annotations": {
+      "description": "flaky-test-signal"
+    },
+    "startsAt": "2025-12-16T00:00:00Z"
+  }
+]
+```
+Today, the harness’s default webhook payload is not Alertmanager-formatted, so if you want to post directly from the harness, you’ll need to send the Alertmanager-compatible JSON as above. Otherwise, use Grafana’s alerting → contact point path described above.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Ask)**_
+
+<think><details><summary>Thought Process</summary>
+**Confirming Alertmanager URL and compatibility**
+
+The Alertmanager URL should be set to http://localhost:9093, matching the user's API setup. Next, verify that the harness payload is compatible with Alertmanager by testing with curl. I'll provide concise next steps accordingly.</details></think>
+
+---
+
+You’ve got the stack running (containers are up) and a Grafana webhook pointing at Alertmanager. Two next steps to make it work end-to-end:
+
+1) Verify Alertmanager is reachable from Grafana
+- From the Grafana host: `curl http://localhost:9093/api/v2/status` should return JSON. If it fails, adjust the URL/port to match your Docker mapping (if AM is in Docker, ensure the port is published or use the container name).
+
+2) Send a test payload in Alertmanager format
+- Alertmanager expects an array of alerts. Example:
+```json
+[
+  {
+    "labels": {
+      "alertname": "scenario_observability",
+      "scenario_id": "FM1-flaky-tests",
+      "severity": "warning"
+    },
+    "annotations": {
+      "description": "flaky-test-signal"
+    },
+    "startsAt": "2025-12-16T00:00:00Z"
+  }
+]
+```
+- You can POST this once with curl to confirm delivery:
+```bash
+curl -XPOST http://localhost:9093/api/v2/alerts \
+  -H "Content-Type: application/json" \
+  -d '[{...as above...}]'
+```
+If you want the harness to post directly to AM, we’d need to adjust the harness webhook payload to this Alertmanager format; right now it writes JSONL artifacts and, if a webhook is set, sends a simple stub payload. Let me know if you want me to wire the AM-compatible payload into the harness.
+
+Once AM confirms receipt, you’ll see delivery attempts in Grafana for that contact point.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+@powershell (968-1017) fix this issue.
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Agent)**_
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **run_terminal_cmd** • Run command: docker compose ps</summary>
+
+```bash
+docker compose ps
+```
+
+```
+NAME                                  IMAGE                              COMMAND                  SERVICE         CREATED        STATUS                 PORTS
+zeroui-scenario-lab-grafana-1         grafana/grafana:10.4.5             "/run.sh"                grafana         26 hours ago   Up 7 hours             0.0.0.0:3300-&gt;3000/tcp, [::]:3300-&gt;3000/tcp
+zeroui-scenario-lab-oncall-celery-1   grafana/oncall:latest              "/bin/sh -c 'celery …"   oncall-celery   26 hours ago   Up 13 minutes          
+zeroui-scenario-lab-oncall-db-1       postgres:14-alpine                 "docker-entrypoint.s…"   oncall-db       26 hours ago   Up 7 hours (healthy)   5432/tcp
+zeroui-scenario-lab-oncall-engine-1   grafana/oncall:latest              "/bin/sh -c 'python …"   oncall-engine   26 hours ago   Up 7 hours             0.0.0.0:18080-&gt;8080/tcp, [::]:18080-&gt;8080/tcp
+zeroui-scenario-lab-oncall-redis-1    redis:7-alpine                     "docker-entrypoint.s…"   oncall-redis    26 hours ago   Up 7 hours (healthy)   6379/tcp
+zeroui-scenario-lab-unleash-1         unleashorg/unleash-server:latest   "docker-entrypoint.s…"   unleash         26 hours ago   Up 7 hours             0.0.0.0:42420-&gt;4242/tcp, [::]:42420-&gt;4242/tcp
+zeroui-scenario-lab-unleash-db-1      postgres:14-alpine                 "docker-entrypoint.s…"   unleash-db      26 hours ago   Up 7 hours (healthy)   5432/tcp
+
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="shell" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **run_terminal_cmd** • Run command: curl -X POST "http://localhost:9093/api/v2/alerts" -H "Content-Type: application/json" -d "[{\"labels\":{\"alertname\":\"scenario_observability\",\"scenario_id\":\"FM1-flaky-tests\",\"severity\":\"warning\"},\"annotations\":{\"description\":\"flaky-test-signal\"},\"startsAt\":\"2025-12-16T00:00:00Z\"}]"</summary>
+
+```bash
+curl -X POST "http://localhost:9093/api/v2/alerts" -H "Content-Type: application/json" -d "[{\"labels\":{\"alertname\":\"scenario_observability\",\"scenario_id\":\"FM1-flaky-tests\",\"severity\":\"warning\"},\"annotations\":{\"description\":\"flaky-test-signal\"},\"startsAt\":\"2025-12-16T00:00:00Z\"}]"
+```
+
+```
+Invoke-WebRequest : Cannot bind parameter 'Headers'. Cannot convert the "Content-Type: application/json" value of type 
+"System.String" to type "System.Collections.IDictionary".
+At C:\Users\user\AppData\Local\Temp\ps-script-ed6db27e-a152-4615-9db3-a4d32a616ccc.ps1:90 char:55
++ ... lhost:9093/api/v2/alerts" -H "Content-Type: application/json" -d "[{\ ...
++                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Invoke-WebRequest], ParameterBindingException
+    + FullyQualifiedErrorId : CannotConvertArgumentNoMessage,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+ 
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+**Explaining missing Alertmanager and providing PowerShell fix**
+
+The current stack doesn't include Alertmanager, so port 9093 is unreachable; I'll explain this and recommend either adding Alertmanager to the Docker Compose or pointing to an existing running instance. I'll also provide a working PowerShell curl command with proper headers and JSON body.</details></think>
+
+---
+
+You’re getting the “curl” errors because:
+
+1) There is no Alertmanager running in your stack.
+   - `docker compose ps` shows only Grafana, OnCall, Unleash, and their DB/Redis. No service is listening on 9093, so `http://localhost:9093` is unreachable. Decide on a real destination:
+     - Add Alertmanager to your docker-compose and expose 9093, or
+     - Use whatever actual webhook URL you want (e.g., a request bin) and update the Grafana contact point and harness envs to that URL.
+
+2) PowerShell “curl” is `Invoke-WebRequest` and needs proper syntax:
+   - A working PowerShell POST (if you do run Alertmanager) looks like:
+   ```powershell
+   Invoke-WebRequest -Uri "http://localhost:9093/api/v2/alerts" `
+     -Method Post `
+     -Headers @{ "Content-Type" = "application/json" } `
+     -Body '[{"labels":{"alertname":"scenario_observability","scenario_id":"FM1-flaky-tests","severity":"warning"},"annotations":{"description":"flaky-test-signal"},"startsAt":"2025-12-16T00:00:00Z"}]'
+   ```
+   But this will still fail until an Alertmanager is actually running at that URL/port.
+
+What to do now:
+- Either add Alertmanager to your stack (so 9093 is real), or point the Grafana webhook to a reachable endpoint you control. If you share the actual webhook URL you want to use, I’ll help craft the exact command and payload.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+please add  Alertmanager to your stack (so 9093 is real).
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Adding Alertmanager service and config**
+
+I'm adding an Alertmanager service to docker-compose.yml with minimal config mounted from alertmanager/alertmanager.yml, using a basic inline route to null receiver. Next, I'll apply patches to update compose and add the config file.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="apply_patch">
+<details>
+<summary>Tool use: **apply_patch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "docker-compose.yml"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "56befde1-15ea-49dc-8a48-5bd065e75785"
+}
+```
+Result:
+
+```json
+{
+  "diff": {
+    "chunks": [
+      {
+        "diffString": "      restart: unless-stopped\r\n  \r\n+   alertmanager:\r\n+     image: prom/alertmanager:v0.27.0\r\n+     command:\r\n+       - \"--config.file=/etc/alertmanager/alertmanager.yml\"\r\n+     volumes:\r\n+       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro\r\n+     ports:\r\n+       - \"9093:9093\"\r\n+     restart: unless-stopped\r\n+ \r\n  volumes:\r\n    unleash_db_data:\r",
+        "oldStart": 128,
+        "newStart": 128,
+        "oldLines": 4,
+        "newLines": 14,
+        "linesAdded": 10
+      }
+    ],
+    "editor": "EDITOR_AI"
+  },
+  "shouldAutoFixLints": true,
+  "resultForModel": "Success. Updated the following files:\nM docker-compose.yml",
+  "contentsAfterEdit": "services:\r\n  unleash-db:\r\n    image: postgres:14-alpine\r\n    environment:\r\n      POSTGRES_USER: unleash\r\n      POSTGRES_PASSWORD: unleash_password\r\n      POSTGRES_DB: unleash\r\n    volumes:\r\n      - unleash_db_data:/var/lib/postgresql/data\r\n    healthcheck:\r\n      test: [\"CMD-SHELL\", \"pg_isready -U unleash\"]\r\n      interval: 10s\r\n      timeout: 5s\r\n      retries: 5\r\n\r\n  unleash:\r\n    image: unleashorg/unleash-server:latest\r\n    depends_on:\r\n      - unleash-db\r\n    ports:\r\n      - \"42420:4242\"\r\n    environment:\r\n      DATABASE_HOST: unleash-db\r\n      DATABASE_NAME: unleash\r\n      DATABASE_USERNAME: unleash\r\n      DATABASE_PASSWORD: unleash_password\r\n      DATABASE_SSL: \"false\"\r\n      LOG_LEVEL: info\r\n    restart: unless-stopped\r\n\r\n  grafana:\r\n    image: grafana/grafana:10.4.5\r\n    ports:\r\n      - \"3300:3000\"\r\n    environment:\r\n      GF_SECURITY_ADMIN_USER: admin\r\n      GF_SECURITY_ADMIN_PASSWORD: admin\r\n    restart: unless-stopped\r\n\r\n  oncall-db:\r\n    image: postgres:14-alpine\r\n    environment:\r\n      POSTGRES_USER: oncall\r\n      POSTGRES_PASSWORD: oncall_password\r\n      POSTGRES_DB: oncall\r\n    volumes:\r\n      - oncall_db_data:/var/lib/postgresql/data\r\n    healthcheck:\r\n      test: [\"CMD-SHELL\", \"pg_isready -U oncall\"]\r\n      interval: 10s\r\n      timeout: 5s\r\n      retries: 5\r\n\r\n  oncall-redis:\r\n    image: redis:7-alpine\r\n    command: [\"redis-server\", \"--appendonly\", \"yes\"]\r\n    healthcheck:\r\n      test: [\"CMD\", \"redis-cli\", \"ping\"]\r\n      interval: 10s\r\n      timeout: 5s\r\n      retries: 5\r\n\r\n  oncall-migrate:\r\n    image: grafana/oncall:latest\r\n    depends_on:\r\n      oncall-db:\r\n        condition: service_healthy\r\n      oncall-redis:\r\n        condition: service_healthy\r\n    environment:\r\n      DJANGO_SETTINGS_MODULE: settings.dev\r\n      DATABASE_TYPE: postgresql\r\n      DATABASE_NAME: oncall\r\n      DATABASE_USER: oncall\r\n      DATABASE_PASSWORD: oncall_password\r\n      DATABASE_HOST: oncall-db\r\n      DATABASE_PORT: 5432\r\n      REDIS_URL: redis://oncall-redis:6379/0\r\n      SECRET_KEY: dev_only_change_me\r\n      GRAFANA_API_URL: http://grafana:3000\r\n    command: [\"/bin/sh\", \"-c\", \"python manage.py migrate --noinput\"]\r\n    restart: \"on-failure\"\r\n\r\n  oncall-engine:\r\n    image: grafana/oncall:latest\r\n    depends_on:\r\n      oncall-migrate:\r\n        condition: service_completed_successfully\r\n      oncall-redis:\r\n        condition: service_healthy\r\n      oncall-db:\r\n        condition: service_healthy\r\n    environment:\r\n      DJANGO_SETTINGS_MODULE: settings.dev\r\n      DATABASE_TYPE: postgresql\r\n      DATABASE_NAME: oncall\r\n      DATABASE_USER: oncall\r\n      DATABASE_PASSWORD: oncall_password\r\n      DATABASE_HOST: oncall-db\r\n      DATABASE_PORT: 5432\r\n      REDIS_URL: redis://oncall-redis:6379/0\r\n      SECRET_KEY: dev_only_change_me\r\n      GRAFANA_API_URL: http://grafana:3000\r\n    command: [\"/bin/sh\", \"-c\", \"python manage.py runserver 0.0.0.0:8080\"]\r\n    ports:\r\n      - \"18080:8080\"\r\n    restart: unless-stopped\r\n\r\n  oncall-celery:\r\n    image: grafana/oncall:latest\r\n    depends_on:\r\n      oncall-redis:\r\n        condition: service_healthy\r\n      oncall-db:\r\n        condition: service_healthy\r\n    environment:\r\n      DJANGO_SETTINGS_MODULE: settings.dev\r\n      DATABASE_TYPE: postgresql\r\n      DATABASE_NAME: oncall\r\n      DATABASE_USER: oncall\r\n      DATABASE_PASSWORD: oncall_password\r\n      DATABASE_HOST: oncall-db\r\n      DATABASE_PORT: 5432\r\n      REDIS_URL: redis://oncall-redis:6379/0\r\n      SECRET_KEY: dev_only_change_me\r\n      GRAFANA_API_URL: http://grafana:3000\r\n    command: [\"/bin/sh\", \"-c\", \"celery -A engine.celery worker -l INFO\"]\r\n    restart: unless-stopped\r\n\r\n  alertmanager:\r\n    image: prom/alertmanager:v0.27.0\r\n    command:\r\n      - \"--config.file=/etc/alertmanager/alertmanager.yml\"\r\n    volumes:\r\n      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro\r\n    ports:\r\n      - \"9093:9093\"\r\n    restart: unless-stopped\r\n\r\nvolumes:\r\n  unleash_db_data:\r\n  oncall_db_data:\r\n\r\n"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="apply_patch">
+<details>
+<summary>Tool use: **apply_patch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "alertmanager/alertmanager.yml"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "99659a21-c53b-46fc-96ae-898d3c3e350e"
+}
+```
+Result:
+
+```json
+{
+  "diff": {
+    "chunks": [
+      {
+        "diffString": "- \n+ global:\n+   resolve_timeout: 5m\n+ \n+ route:\n+   receiver: \"null\"\n+ \n+ receivers:\n+   - name: \"null\"\n+ ",
+        "oldStart": 1,
+        "newStart": 1,
+        "oldLines": 1,
+        "newLines": 9,
+        "linesRemoved": 1,
+        "linesAdded": 9
+      }
+    ],
+    "editor": "EDITOR_AI"
+  },
+  "shouldAutoFixLints": true,
+  "resultForModel": "Success. Updated the following files:\nM alertmanager/alertmanager.yml",
+  "contentsAfterEdit": "global:\r\n  resolve_timeout: 5m\r\n\r\nroute:\r\n  receiver: \"null\"\r\n\r\nreceivers:\r\n  - name: \"null\"\r\n\r\n"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 2 files</summary>
+      
+Lint paths:
+
+- `docker-compose.yml`
+- `alertmanager/alertmanager.yml`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+</tool-use>
+
+---
+
+Added Alertmanager to the stack.
+
+Changes:
+- `docker-compose.yml`: new `alertmanager` service (prom/alertmanager:v0.27.0) exposed on `9093`, mounts a config.
+- `alertmanager/alertmanager.yml`: minimal config with a default “null” receiver.
+
+Next steps:
+1) Bring the stack up (or recreate) so Alertmanager starts:
+   ```bash
+   docker compose up -d
+   ```
+2) Verify it’s reachable:
+   ```bash
+   curl http://localhost:9093/api/v2/status
+   ```
+3) Update your Grafana webhook/contact point to use `http://localhost:9093/api/v2/alerts`.
+
+Note: The harness currently sends stub payloads; Alertmanager expects an array of alerts (see prior example). If you want the harness to post AM-compatible payloads directly, tell me and I’ll wire that format in.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+yes i want the harness to post AM-compatible payloads directly, tell me and I’ll wire that format in.Strict, careful processing demanded: no hallucination, no assumptions, no sycophancy, no fiction. Deliver 10/10 Gold Standard Quality with elimination of all false positives. Do what is asked.100% Accurate response, no inferences, no artificial.
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Agent)**_
+
+<tool-use data-tool-type="unknown" data-tool-name="apply_patch">
+<details>
+<summary>Tool use: **apply_patch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "harness/run_scenario.py"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "a0348415-4485-4681-9c89-74e5f12cf6a7"
+}
+```
+Result:
+
+```json
+{
+  "diff": {
+    "chunks": [
+      {
+        "diffString": "  import zeroui_assert\r\n  \r\n+ # Helper to prepare Alertmanager payloads\r\n+ def build_alertmanager_payload(scenario_id: str, signals: list[str], severity: str = \"warning\") -&gt; list[dict]:\r\n+     desc = \", \".join(signals) if signals else \"scenario signal\"\r\n+     return [\r\n+         {\r\n+             \"labels\": {\r\n+                 \"alertname\": \"scenario_observability\",\r\n+                 \"scenario_id\": scenario_id,\r\n+                 \"severity\": severity,\r\n+             },\r\n+             \"annotations\": {\r\n+                 \"description\": desc,\r\n+             },\r\n+             \"startsAt\": \"2025-12-16T00:00:00Z\",  # static timestamp placeholder\r\n+         }\r\n+     ]\r\n+ \r\n  try:\r\n      import yaml  # type: ignore\r",
+        "oldStart": 19,
+        "newStart": 19,
+        "oldLines": 4,
+        "newLines": 21,
+        "linesAdded": 17
+      },
+      {
+        "diffString": "          name=\"CI\",\r\n      )\r\n-     obs_hook_msg = post_hook(\r\n-         url=os.getenv(\"OBS_WEBHOOK_URL\"),\r\n-         token=os.getenv(\"OBS_WEBHOOK_TOKEN\"),\r\n-         payload={\"scenario_id\": args.scenario_id, \"signals\": obs_cfg.get(\"signals\") if \"obs_cfg\" in locals() and obs_cfg else None},\r\n-         name=\"OBS\",\r\n-     )\r\n+ \r\n+     # Observability: if OBS_AM is set true, send Alertmanager-compatible payload\r\n+     obs_hook_url = os.getenv(\"OBS_WEBHOOK_URL\")\r\n+     obs_hook_token = os.getenv(\"OBS_WEBHOOK_TOKEN\")\r\n+     use_am = os.getenv(\"OBS_AM\", \"\").lower() in {\"1\", \"true\", \"yes\"}\r\n+     if obs_hook_url and use_am and obs_cfg and obs_cfg.get(\"signals\"):\r\n+         am_payload = build_alertmanager_payload(args.scenario_id, obs_cfg.get(\"signals\", []))\r\n+         obs_hook_msg = post_hook(\r\n+             url=obs_hook_url,\r\n+             token=obs_hook_token,\r\n+             payload=am_payload,\r\n+             name=\"OBS (AM)\",\r\n+         )\r\n+     else:\r\n+         obs_hook_msg = post_hook(\r\n+             url=obs_hook_url,\r\n+             token=obs_hook_token,\r\n+             payload={\"scenario_id\": args.scenario_id, \"signals\": obs_cfg.get(\"signals\") if obs_cfg else None},\r\n+             name=\"OBS\",\r\n+         )\r\n+ \r\n      incident_hook_msg = post_hook(\r\n          url=os.getenv(\"INCIDENT_WEBHOOK_URL\"),\r",
+        "oldStart": 428,
+        "newStart": 445,
+        "oldLines": 10,
+        "newLines": 25,
+        "linesRemoved": 6,
+        "linesAdded": 21
+      }
+    ],
+    "editor": "EDITOR_AI"
+  },
+  "shouldAutoFixLints": true,
+  "resultForModel": "Success. Updated the following files:\nM harness/run_scenario.py",
+  "contentsAfterEdit": "#!/usr/bin/env python3\r\n\"\"\"\r\nMinimal harness runner for scenarios.\r\n- Resolves scenario_id to a YAML under scenarios/FM*/.\r\n- Loads YAML (PyYAML) and prints planned steps; no external calls.\r\nMapping: scenario_id of the form FM&lt;number&gt;-&lt;slug&gt; maps to scenarios/FM&lt;number&gt;/&lt;slug&gt;.yaml.\r\nFalls back to searching for a YAML whose stem matches scenario_id.\r\n\"\"\"\r\nfrom __future__ import annotations\r\n\r\nimport argparse\r\nimport os\r\nimport shutil\r\nimport subprocess\r\nimport sys\r\nfrom pathlib import Path\r\n\r\nimport requests\r\nimport zeroui_assert\r\n\r\n# Helper to prepare Alertmanager payloads\r\ndef build_alertmanager_payload(scenario_id: str, signals: list[str], severity: str = \"warning\") -&gt; list[dict]:\r\n    desc = \", \".join(signals) if signals else \"scenario signal\"\r\n    return [\r\n        {\r\n            \"labels\": {\r\n                \"alertname\": \"scenario_observability\",\r\n                \"scenario_id\": scenario_id,\r\n                \"severity\": severity,\r\n            },\r\n            \"annotations\": {\r\n                \"description\": desc,\r\n            },\r\n            \"startsAt\": \"2025-12-16T00:00:00Z\",  # static timestamp placeholder\r\n        }\r\n    ]\r\n\r\ntry:\r\n    import yaml  # type: ignore\r\nexcept ImportError as exc:\r\n    sys.stderr.write(\"PyYAML not installed. Run: pip install -r harness/requirements.txt\\n\")\r\n    raise SystemExit(1) from exc\r\n\r\n\r\nREPO_ROOT = Path(__file__).resolve().parent.parent\r\nHARNESS_DIR = Path(__file__).resolve().parent\r\nSCENARIOS_DIR = REPO_ROOT / \"scenarios\"\r\nARTIFACTS_DIR = HARNESS_DIR / \"_artifacts\"\r\nCI_STUB_PATH = HARNESS_DIR / \"ci_stub\" / \"run_ci_stub.py\"\r\nOBS_STUB_PATH = HARNESS_DIR / \"observability_stub\" / \"emit.py\"\r\nINCIDENT_STUB_PATH = HARNESS_DIR / \"incident_stub\" / \"emit.py\"\r\n\r\n\r\ndef resolve_scenario_path(scenario_id: str) -&gt; Path:\r\n    \"\"\"Map scenario_id to a YAML file using the stable FMn-&lt;slug&gt; convention.\"\"\"\r\n    if \"-\" in scenario_id:\r\n        fm_prefix, slug = scenario_id.split(\"-\", 1)\r\n        candidate = SCENARIOS_DIR / fm_prefix / f\"{slug}.yaml\"\r\n        if candidate.is_file():\r\n            return candidate\r\n\r\n    # Fallback: search by filename stem across scenarios.\r\n    matches = [p for p in SCENARIOS_DIR.rglob(\"*.yaml\") if p.stem == scenario_id]\r\n    if len(matches) == 1:\r\n        return matches[0]\r\n    if len(matches) &gt; 1:\r\n        raise FileExistsError(f\"Scenario id '{scenario_id}' is ambiguous: {matches}\")\r\n    raise FileNotFoundError(f\"Scenario YAML not found for id '{scenario_id}'\")\r\n\r\n\r\ndef load_yaml(path: Path) -&gt; dict:\r\n    with path.open(\"r\", encoding=\"utf-8\") as handle:\r\n        return yaml.safe_load(handle) or {}\r\n\r\n\r\ndef ensure_artifacts_dir() -&gt; None:\r\n    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)\r\n\r\n\r\ndef format_signal_emitters(signal_emitters: object) -&gt; str:\r\n    if isinstance(signal_emitters, dict):\r\n        return \", \".join(sorted(signal_emitters.keys()))\r\n    if isinstance(signal_emitters, list):\r\n        return \", \".join(signal_emitters)\r\n    return str(signal_emitters)\r\n\r\n\r\ndef print_plan(scenario_id: str, path: Path, data: dict) -&gt; None:\r\n    rel_path = path.relative_to(REPO_ROOT)\r\n    mutation_targets = data.get(\"mutation_targets\") or []\r\n    signal_emitters = data.get(\"signal_emitters\") or []\r\n    print(f\"Resolved scenario: {scenario_id}\")\r\n    print(f\"YAML path: {rel_path}\")\r\n    print(f\"Module: {data.get('module', '(missing)')}\")\r\n    print(f\"Archetype: {data.get('archetype', '(missing)')}\")\r\n    print(f\"Description: {data.get('description', '(missing)')}\")\r\n    print(f\"Mutation targets: {mutation_targets}\")\r\n    print(f\"Signal emitters: {format_signal_emitters(signal_emitters)}\")\r\n    print(\"Planned steps: load scenario → run harness stubs → report → reset.\")\r\n\r\n\r\ndef extract_ci_config(signal_emitters: object) -&gt; dict | None:\r\n    if not signal_emitters:\r\n        return None\r\n    cfg = None\r\n    if isinstance(signal_emitters, dict) and \"ci\" in signal_emitters:\r\n        raw = signal_emitters.get(\"ci\") or {}\r\n        if isinstance(raw, dict):\r\n            cfg = raw\r\n        else:\r\n            cfg = {}\r\n    elif isinstance(signal_emitters, list) and \"ci\" in signal_emitters:\r\n        cfg = {}\r\n\r\n    if cfg is None:\r\n        return None\r\n\r\n    exit_code_raw = cfg.get(\"exit_code\", 0) if isinstance(cfg, dict) else 0\r\n    try:\r\n        exit_code = int(exit_code_raw)\r\n    except (TypeError, ValueError):\r\n        raise ValueError(f\"Invalid ci.exit_code value: {exit_code_raw}\")\r\n\r\n    message = \"\"\r\n    if isinstance(cfg, dict):\r\n        msg_raw = cfg.get(\"message\", \"\")\r\n        message = \"\" if msg_raw is None else str(msg_raw)\r\n\r\n    return {\"exit_code\": exit_code, \"message\": message}\r\n\r\n\r\ndef extract_observability_config(signal_emitters: object) -&gt; dict | None:\r\n    if not signal_emitters:\r\n        return None\r\n    cfg = None\r\n    if isinstance(signal_emitters, dict) and \"observability\" in signal_emitters:\r\n        raw = signal_emitters.get(\"observability\") or {}\r\n        if isinstance(raw, dict):\r\n            cfg = raw\r\n        else:\r\n            cfg = {}\r\n    elif isinstance(signal_emitters, list) and \"observability\" in signal_emitters:\r\n        return {\"signals\": [], \"flag_action\": None}\r\n\r\n    if cfg is None:\r\n        return None\r\n\r\n    signals = cfg.get(\"signals\", [])\r\n    if signals is None:\r\n        signals = []\r\n    if not isinstance(signals, list):\r\n        raise ValueError(\"observability.signals must be a list\")\r\n    normalized = [str(s) for s in signals]\r\n    flag_action = cfg.get(\"flag_action\")\r\n    if flag_action is not None:\r\n        flag_action = str(flag_action)\r\n    return {\"signals\": normalized, \"flag_action\": flag_action}\r\n\r\n\r\ndef extract_incident_config(signal_emitters: object) -&gt; dict | None:\r\n    if not signal_emitters:\r\n        return None\r\n    cfg = None\r\n    if isinstance(signal_emitters, dict) and \"incident\" in signal_emitters:\r\n        raw = signal_emitters.get(\"incident\") or {}\r\n        if isinstance(raw, dict):\r\n            cfg = raw\r\n        else:\r\n            cfg = {}\r\n    elif isinstance(signal_emitters, list) and \"incident\" in signal_emitters:\r\n        cfg = {}\r\n\r\n    if cfg is None:\r\n        return None\r\n\r\n    should_create = bool(cfg.get(\"should_create\", False)) if isinstance(cfg, dict) else False\r\n    severity = \"\"\r\n    title = \"\"\r\n    if isinstance(cfg, dict):\r\n        severity = str(cfg.get(\"severity\", \"unknown\"))\r\n        title = str(cfg.get(\"title\", \"\"))\r\n\r\n    flag_action = None\r\n    if isinstance(cfg, dict) and \"flag_action\" in cfg:\r\n        flag_action = cfg.get(\"flag_action\")\r\n        if flag_action is not None:\r\n            flag_action = str(flag_action)\r\n\r\n    return {\"should_create\": should_create, \"severity\": severity, \"title\": title, \"flag_action\": flag_action}\r\n\r\n\r\ndef run_ci_stub(scenario_id: str, ci_config: dict) -&gt; int:\r\n    cmd = [\r\n        sys.executable,\r\n        str(CI_STUB_PATH),\r\n        \"--scenario-id\",\r\n        scenario_id,\r\n        \"--exit-code\",\r\n        str(ci_config.get(\"exit_code\", 0)),\r\n    ]\r\n    message = ci_config.get(\"message\")\r\n    if message:\r\n        cmd += [\"--message\", str(message)]\r\n\r\n    proc = subprocess.run(cmd, cwd=REPO_ROOT)\r\n    return proc.returncode\r\n\r\n\r\ndef run_observability_stub(scenario_id: str, cfg: dict) -&gt; int:\r\n    signals = cfg.get(\"signals\", [])\r\n    flag_action = cfg.get(\"flag_action\")\r\n    if not signals:\r\n        print(\"[observability_stub] No signals provided; skipping emission.\")\r\n        return 0\r\n    cmd = [\r\n        sys.executable,\r\n        str(OBS_STUB_PATH),\r\n        \"--scenario-id\",\r\n        scenario_id,\r\n    ]\r\n    for sig in signals:\r\n        cmd += [\"--signal\", sig]\r\n    if flag_action:\r\n        cmd += [\"--flag-action\", flag_action]\r\n\r\n    proc = subprocess.run(cmd, cwd=REPO_ROOT)\r\n    return proc.returncode\r\n\r\n\r\ndef run_incident_stub(scenario_id: str, cfg: dict) -&gt; int:\r\n    cmd = [\r\n        sys.executable,\r\n        str(INCIDENT_STUB_PATH),\r\n        \"--scenario-id\",\r\n        scenario_id,\r\n    ]\r\n    if cfg.get(\"should_create\"):\r\n        cmd.append(\"--should-create\")\r\n    if cfg.get(\"severity\"):\r\n        cmd += [\"--severity\", str(cfg.get(\"severity\"))]\r\n    if cfg.get(\"title\"):\r\n        cmd += [\"--title\", str(cfg.get(\"title\"))]\r\n    if cfg.get(\"flag_action\"):\r\n        cmd += [\"--flag-action\", str(cfg.get(\"flag_action\"))]\r\n\r\n    proc = subprocess.run(cmd, cwd=REPO_ROOT)\r\n    return proc.returncode\r\n\r\n\r\ndef reset_repo_state() -&gt; bool:\r\n    \"\"\"Restore tracked changes and clean untracked files/dirs, preserving ignored artifacts.\"\"\"\r\n    if not (REPO_ROOT / \".git\").exists():\r\n        print(\"Reset skipped: no .git directory detected (workspace assumed clean).\")\r\n        return True\r\n    if shutil.which(\"git\") is None:\r\n        print(\"Reset skipped: git executable not found in PATH.\")\r\n        return True\r\n\r\n    print(\"Resetting repository state (keeps ignored artifacts)...\")\r\n    commands = [\r\n        [\"git\", \"restore\", \".\"],\r\n        [\"git\", \"clean\", \"-fd\"],\r\n    ]\r\n    for cmd in commands:\r\n        proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)\r\n        if proc.returncode != 0:\r\n            sys.stderr.write(f\"Command failed: {' '.join(cmd)}\\n\")\r\n            if proc.stderr:\r\n                sys.stderr.write(proc.stderr)\r\n            return False\r\n    return True\r\n\r\n\r\ndef parse_args(argv: list[str]) -&gt; argparse.Namespace:\r\n    parser = argparse.ArgumentParser(description=\"Run a Scenario Lab harness stub.\")\r\n    parser.add_argument(\"scenario_id\", help=\"Scenario id, e.g., FM1-flaky-tests\")\r\n    return parser.parse_args(argv)\r\n\r\n\r\ndef run_tests() -&gt; int:\r\n    \"\"\"Run pytest for shop-app; return exit code.\"\"\"\r\n    cmd = [sys.executable, \"-m\", \"pytest\", \"apps/shop-app\"]\r\n    env = os.environ.copy()\r\n    env[\"PYTHONPATH\"] = str(REPO_ROOT)\r\n    proc = subprocess.run(cmd, cwd=REPO_ROOT, env=env)\r\n    return proc.returncode\r\n\r\n\r\ndef try_unleash_feature(base_url: str | None, token: str | None, feature_key: str | None) -&gt; str:\r\n    if not (base_url and token and feature_key):\r\n        return \"Unleash check skipped (UNLEASH_URL, UNLEASH_TOKEN, UNLEASH_FEATURE not all set)\"\r\n    url = base_url.rstrip(\"/\") + f\"/api/client/features/{feature_key}\"\r\n    headers = {\"Authorization\": token, \"Accept\": \"application/json\"}\r\n    try:\r\n        resp = requests.get(url, headers=headers, timeout=3)\r\n    except Exception as exc:  # noqa: BLE001\r\n        return f\"Unleash check error: {exc}\"\r\n    if resp.status_code != 200:\r\n        return f\"Unleash check HTTP {resp.status_code}\"\r\n    try:\r\n        data = resp.json()\r\n    except Exception as exc:  # noqa: BLE001\r\n        return f\"Unleash check JSON error: {exc}\"\r\n    enabled = data.get(\"enabled\")\r\n    return f\"Unleash feature {feature_key}: enabled={enabled}\"\r\n\r\n\r\ndef post_hook(url: str | None, token: str | None, payload: dict, name: str) -&gt; str:\r\n    if not url:\r\n        return f\"{name} webhook skipped (no URL set)\"\r\n    headers = {\"Accept\": \"application/json\", \"Content-Type\": \"application/json\"}\r\n    if token:\r\n        headers[\"Authorization\"] = token\r\n    try:\r\n        resp = requests.post(url, headers=headers, json=payload, timeout=5)\r\n    except Exception as exc:  # noqa: BLE001\r\n        return f\"{name} webhook error: {exc}\"\r\n    return f\"{name} webhook HTTP {resp.status_code}\"\r\n\r\n\r\ndef validate_zero_ui(expected_resp: object, url: str | None, token: str | None, strict: bool) -&gt; tuple[bool, str]:\r\n    if not url:\r\n        return True, \"ZeroUI validation skipped (ZEROUI_VALIDATE_URL not set)\"\r\n    headers = {\"Accept\": \"application/json\", \"Content-Type\": \"application/json\"}\r\n    if token:\r\n        headers[\"Authorization\"] = token\r\n    try:\r\n        resp = requests.post(url, headers=headers, json={\"expected\": expected_resp}, timeout=5)\r\n    except Exception as exc:  # noqa: BLE001\r\n        msg = f\"ZeroUI validation error: {exc}\"\r\n        return (False if strict else True), msg\r\n    if 200 &lt;= resp.status_code &lt; 300:\r\n        return True, f\"ZeroUI validation HTTP {resp.status_code}\"\r\n    msg = f\"ZeroUI validation HTTP {resp.status_code}\"\r\n    return (False if strict else True), msg\r\n\r\n\r\ndef main(argv: list[str]) -&gt; int:\r\n    args = parse_args(argv)\r\n    ensure_artifacts_dir()\r\n    zeroui_api_url = os.getenv(\"ZEROUI_API_URL\")\r\n    if zeroui_api_url:\r\n        print(f\"ZEROUI_API_URL = {zeroui_api_url}\")\r\n    else:\r\n        print(\"ZEROUI_API_URL not set\")\r\n    try:\r\n        scenario_path = resolve_scenario_path(args.scenario_id)\r\n    except (FileNotFoundError, FileExistsError) as err:\r\n        sys.stderr.write(f\"{err}\\n\")\r\n        return 1\r\n\r\n    data = load_yaml(scenario_path)\r\n    print_plan(args.scenario_id, scenario_path, data)\r\n\r\n    overall_ok = True\r\n    step_results: list[tuple[str, str]] = []\r\n\r\n    tests_rc = run_tests()\r\n    if tests_rc != 0:\r\n        overall_ok = False\r\n        step_results.append((\"tests\", f\"FAIL (exit {tests_rc})\"))\r\n    else:\r\n        step_results.append((\"tests\", \"PASS\"))\r\n\r\n    try:\r\n        ci_cfg = extract_ci_config(data.get(\"signal_emitters\"))\r\n    except ValueError as err:\r\n        sys.stderr.write(f\"{err}\\n\")\r\n        return 1\r\n    if ci_cfg:\r\n        ci_rc = run_ci_stub(args.scenario_id, ci_cfg)\r\n        if ci_rc != 0:\r\n            sys.stderr.write(f\"CI stub failed with exit code {ci_rc}\\n\")\r\n            overall_ok = False\r\n            step_results.append((\"ci_stub\", f\"FAIL (exit {ci_rc})\"))\r\n        else:\r\n            step_results.append((\"ci_stub\", \"PASS\"))\r\n    else:\r\n        step_results.append((\"ci_stub\", \"SKIPPED (not configured)\"))\r\n\r\n    try:\r\n        obs_cfg = extract_observability_config(data.get(\"signal_emitters\"))\r\n    except ValueError as err:\r\n        sys.stderr.write(f\"{err}\\n\")\r\n        return 1\r\n    if obs_cfg is not None:\r\n        obs_rc = run_observability_stub(args.scenario_id, obs_cfg)\r\n        if obs_rc != 0:\r\n            sys.stderr.write(f\"Observability stub failed with exit code {obs_rc}\\n\")\r\n            overall_ok = False\r\n            step_results.append((\"observability_stub\", f\"FAIL (exit {obs_rc})\"))\r\n        else:\r\n            step_results.append((\"observability_stub\", \"PASS\"))\r\n    else:\r\n        step_results.append((\"observability_stub\", \"SKIPPED (not configured)\"))\r\n\r\n    try:\r\n        incident_cfg = extract_incident_config(data.get(\"signal_emitters\"))\r\n    except ValueError as err:\r\n        sys.stderr.write(f\"{err}\\n\")\r\n        return 1\r\n    if incident_cfg is not None:\r\n        incident_rc = run_incident_stub(args.scenario_id, incident_cfg)\r\n        if incident_rc != 0:\r\n            sys.stderr.write(f\"Incident stub failed with exit code {incident_rc}\\n\")\r\n            overall_ok = False\r\n            step_results.append((\"incident_stub\", f\"FAIL (exit {incident_rc})\"))\r\n        else:\r\n            step_results.append((\"incident_stub\", \"PASS\"))\r\n    else:\r\n        step_results.append((\"incident_stub\", \"SKIPPED (not configured)\"))\r\n\r\n    # Placeholder ZeroUI contact (does not affect PASS/FAIL)\r\n    expected_resp = data.get(\"expected_zeroui_response\")\r\n    print(zeroui_assert.summarize_expected(expected_resp))\r\n    print(zeroui_assert.attempt_zeroui_contact(zeroui_api_url))\r\n\r\n    unleash_result = try_unleash_feature(\r\n        base_url=os.getenv(\"UNLEASH_URL\"),\r\n        token=os.getenv(\"UNLEASH_TOKEN\"),\r\n        feature_key=os.getenv(\"UNLEASH_FEATURE\"),\r\n    )\r\n    print(unleash_result)\r\n\r\n    # Optional ZeroUI validation (payload is expected_zeroui_response)\r\n    strict_zeroui = os.getenv(\"ZEROUI_VALIDATE_STRICT\", \"\").lower() in {\"1\", \"true\", \"yes\"}\r\n    zeroui_ok, zeroui_msg = validate_zero_ui(\r\n        expected_resp,\r\n        url=os.getenv(\"ZEROUI_VALIDATE_URL\"),\r\n        token=os.getenv(\"ZEROUI_VALIDATE_TOKEN\"),\r\n        strict=strict_zeroui,\r\n    )\r\n    print(zeroui_msg)\r\n    if not zeroui_ok:\r\n        overall_ok = False\r\n        step_results.append((\"zeroui_validation\", \"FAIL\"))\r\n    else:\r\n        step_results.append((\"zeroui_validation\", \"PASS\" if zeroui_api_url else \"SKIPPED/INFO\"))\r\n\r\n    # Optional outbound hooks\r\n    ci_hook_msg = post_hook(\r\n        url=os.getenv(\"CI_WEBHOOK_URL\"),\r\n        token=os.getenv(\"CI_WEBHOOK_TOKEN\"),\r\n        payload={\"scenario_id\": args.scenario_id, \"ci_exit\": ci_cfg[\"exit_code\"] if ci_cfg else None},\r\n        name=\"CI\",\r\n    )\r\n\r\n    # Observability: if OBS_AM is set true, send Alertmanager-compatible payload\r\n    obs_hook_url = os.getenv(\"OBS_WEBHOOK_URL\")\r\n    obs_hook_token = os.getenv(\"OBS_WEBHOOK_TOKEN\")\r\n    use_am = os.getenv(\"OBS_AM\", \"\").lower() in {\"1\", \"true\", \"yes\"}\r\n    if obs_hook_url and use_am and obs_cfg and obs_cfg.get(\"signals\"):\r\n        am_payload = build_alertmanager_payload(args.scenario_id, obs_cfg.get(\"signals\", []))\r\n        obs_hook_msg = post_hook(\r\n            url=obs_hook_url,\r\n            token=obs_hook_token,\r\n            payload=am_payload,\r\n            name=\"OBS (AM)\",\r\n        )\r\n    else:\r\n        obs_hook_msg = post_hook(\r\n            url=obs_hook_url,\r\n            token=obs_hook_token,\r\n            payload={\"scenario_id\": args.scenario_id, \"signals\": obs_cfg.get(\"signals\") if obs_cfg else None},\r\n            name=\"OBS\",\r\n        )\r\n\r\n    incident_hook_msg = post_hook(\r\n        url=os.getenv(\"INCIDENT_WEBHOOK_URL\"),\r\n        token=os.getenv(\"INCIDENT_WEBHOOK_TOKEN\"),\r\n        payload={\r\n            \"scenario_id\": args.scenario_id,\r\n            \"should_create\": incident_cfg.get(\"should_create\") if incident_cfg else None,\r\n            \"severity\": incident_cfg.get(\"severity\") if incident_cfg else None,\r\n            \"title\": incident_cfg.get(\"title\") if incident_cfg else None,\r\n        },\r\n        name=\"INCIDENT\",\r\n    )\r\n    print(ci_hook_msg)\r\n    print(obs_hook_msg)\r\n    print(incident_hook_msg)\r\n\r\n    reset_ok = reset_repo_state()\r\n    overall_ok = overall_ok and reset_ok\r\n    step_results.append((\"reset\", \"PASS\" if reset_ok else \"FAIL\"))\r\n\r\n    status = \"PASS\" if overall_ok else \"FAIL\"\r\n    print(\"\\n=== Scenario Result ===\")\r\n    print(f\"Scenario: {args.scenario_id}\")\r\n    print(f\"Status: {status}\")\r\n    for name, result in step_results:\r\n        print(f\"- {name}: {result}\")\r\n\r\n    return 0 if overall_ok else 1\r\n\r\n\r\nif __name__ == \"__main__\":\r\n    raise SystemExit(main(sys.argv[1:]))\r\n\r\n"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 1 file</summary>
+      
+Lint paths:
+
+- `harness/run_scenario.py`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+</tool-use>
+
+---
+
+I’ve wired the harness to send Alertmanager-compatible payloads when you opt in.
+
+What changed:
+- `harness/run_scenario.py` now builds AM-style alerts (array of alerts) via `build_alertmanager_payload`.
+- If you set `OBS_AM=true` and `OBS_WEBHOOK_URL` (e.g., `http://localhost:9093/api/v2/alerts`), the observability hook will send AM-compatible JSON. Otherwise it uses the previous stub payload.
+- No other behavior changed.
+
+How to use:
+- Set env vars before running a scenario:
+```powershell
+$env:OBS_AM = "true"
+$env:OBS_WEBHOOK_URL = "http://localhost:9093/api/v2/alerts"   # adjust if your AM URL differs
+# Optional auth header value if needed:
+# $env:OBS_WEBHOOK_TOKEN = "Authorization: Bearer <token>"
+```
+- Run the scenario:
+```powershell
+python harness/run_scenario.py FM1-flaky-tests
+```
+
+Notes:
+- Your stack now includes Alertmanager (port 9093) from the last change.
+- If AM is mapped differently, update `OBS_WEBHOOK_URL` accordingly.
+- If you don’t want AM-format, leave `OBS_AM` unset/false and it will revert to the simple stub payload.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+how to connect grafana and LaunchDarkly .Strict, careful processing demanded: no hallucination, no assumptions, no sycophancy, no fiction. Deliver 10/10 Gold Standard Quality with elimination of all false positives. Do what is asked.100% Accurate response, no inferences, no artificial.
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Ask)**_
+
+Here’s what to do for each:
+
+Grafana (to Alertmanager/webhooks)
+- Set a real destination: you need a running Alertmanager (or any webhook receiver) and its URL. If you use AM, the default is `http://<host>:9093/api/v2/alerts` (make sure AM is actually running/mapped).
+- In Grafana: Alerting → Contact points → Webhook. Paste that URL. If no auth is needed, leave headers empty.
+- Ensure your Notification policy routes alerts to that contact point. Create a simple test rule to fire and confirm delivery.
+
+LaunchDarkly
+- Get your server-side SDK key for the environment you want (LD UI → Account settings → Projects → Environments → copy SDK key for dev/test).
+- Get the flag key you want to evaluate (LD UI → Flags → open flag → key).
+- In your code, set the SDK key via env (don’t hardcode):
+  ```python
+  import os
+  from ldclient import LDClient, Config
+
+  sdk_key = os.environ["LD_SDK_KEY"]  # set this in shell
+  client = LDClient(Config(sdk_key))
+  flag_key = "your-flag-key"
+  user = {"key": "test-user"}  # or your chosen context
+  print(client.variation(flag_key, user, False))
+  ```
+- Set in PowerShell:
+  ```powershell
+  $env:LD_SDK_KEY = "<your-server-sdk-key>"
+  ```
+- Use a simple user/context (e.g., `{"key": "test-user"}`).
+
+If you need the harness to automatically send Alertmanager-compatible payloads, we’d need to reapply that change to `run_scenario.py` (and ensure Alertmanager is running and reachable). For LaunchDarkly integration in the harness, you’d need to provide the SDK key and flag key to evaluate, and the desired context; then we can add an LD check step.
+
+---
+
+_**User (2025-12-16 05:39Z)**_
+
+please fill the gaps based FM-1 -
+from ldclient import Context
+
+# Create context using Context builder and use your own values here
+context = Context.builder("context-key-123abc").name("Sandy").build()
+flag_value = client.variation("zero-ui", context, False)
+
+if flag_value:
+    # TODO: Put your feature here
+else:
+    # TODO: Put your fallback behavior here
+
+
+---
+
+_**Agent (model gpt-5.1-codex-max, mode Ask)**_
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: Zeroui_lunchdunkly.py</summary>
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+**Providing secure LD snippet**
+
+I'm preparing a final code snippet showing how to read the LaunchDarkly SDK key from environment variables, build context with relevant flags including "zero-ui" variation, and print feature flag status—all without hardcoding keys and without editing existing files, just a ready insertion with instructions to set the env variable.</details></think>
+
+---
+
+Here’s a safe, filled-in snippet for FM-1 using LaunchDarkly. It reads the SDK key from an env var, builds a user context, and evaluates the `zero-ui` flag with feature/fallback branches:
+
+```python
+import os
+import ldclient
+from ldclient import Context
+from ldclient.config import Config
+
+if __name__ == '__main__':
+    sdk_key = os.environ.get("LD_SDK_KEY")
+    if not sdk_key:
+        raise SystemExit("LD_SDK_KEY not set. Export your LaunchDarkly server-side SDK key.")
+
+    ldclient.set_config(Config(sdk_key))
+
+    if not ldclient.get().is_initialized():
+        print('SDK failed to initialize')
+        raise SystemExit(1)
+
+    # Build context; adjust name/key/email to your test user
+    context = (
+        Context.builder("context-key-123abc")
+        .kind("user")
+        .set("name", "Sandy")
+        .set("email", "sandy@example.com")
+        .build()
+    )
+
+    flag_value = ldclient.get().variation("zero-ui", context, False)
+
+    if flag_value:
+        # Feature enabled path
+        print("zero-ui flag is ON for this context")
+        # TODO: put your feature-enabled behavior here
+    else:
+        # Fallback path
+        print("zero-ui flag is OFF for this context")
+        # TODO: put your fallback behavior here
+
+    ldclient.get().flush()
+    ldclient.get().close()
+```
+
+Before running, set your SDK key (PowerShell example):
+```powershell
+$env:LD_SDK_KEY = "<your-server-side-sdk-key>"
+python Zeroui_lunchdunkly.py
+```
 
 ---
 
