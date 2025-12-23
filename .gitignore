@@ -1,2 +1,5 @@
 harness/_artifacts/
 
+# SpecStory history files (may contain sensitive data)
+.specstory/
+
