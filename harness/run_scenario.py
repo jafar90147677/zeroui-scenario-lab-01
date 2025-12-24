@@ -169,7 +169,16 @@ def extract_incident_config(signal_emitters: object) -> dict | None:
         if flag_action is not None:
             flag_action = str(flag_action)
 
-    return {"should_create": should_create, "severity": severity, "title": title, "flag_action": flag_action}
+    # Extract Datadog trigger flag
+    trigger_datadog = bool(cfg.get("trigger_datadog", False)) if isinstance(cfg, dict) else False
+
+    return {
+        "should_create": should_create,
+        "severity": severity,
+        "title": title,
+        "flag_action": flag_action,
+        "trigger_datadog": trigger_datadog,
+    }
 
 
 def run_ci_stub(scenario_id: str, ci_config: dict) -> int:
@@ -225,6 +234,8 @@ def run_incident_stub(scenario_id: str, cfg: dict) -> int:
         cmd += ["--title", str(cfg.get("title"))]
     if cfg.get("flag_action"):
         cmd += ["--flag-action", str(cfg.get("flag_action"))]
+    if cfg.get("trigger_datadog"):
+        cmd.append("--trigger-datadog")
 
     proc = subprocess.run(cmd, cwd=REPO_ROOT)
     return proc.returncode
@@ -458,6 +469,40 @@ def main(argv: list[str]) -> int:
     print(f"Status: {status}")
     for name, result in step_results:
         print(f"- {name}: {result}")
+
+    # Generate reports
+    try:
+        from report_generator import generate_html_report, generate_json_summary, open_report_in_browser
+        
+        html_report = generate_html_report(
+            args.scenario_id,
+            data,
+            step_results,
+            status,
+            ARTIFACTS_DIR,
+        )
+        
+        json_report = generate_json_summary(
+            args.scenario_id,
+            data,
+            step_results,
+            status,
+            ARTIFACTS_DIR,
+        )
+        
+        print(f"\n📊 Reports generated:")
+        print(f"   HTML: {html_report.relative_to(REPO_ROOT)}")
+        print(f"   JSON: {json_report.relative_to(REPO_ROOT)}")
+        
+        # Auto-open HTML report
+        auto_open = os.getenv("AUTO_OPEN_REPORT", "true").lower() in {"1", "true", "yes"}
+        if auto_open:
+            open_report_in_browser(html_report)
+            print(f"   ✓ Opened in browser")
+    except ImportError:
+        pass  # Report generator not available
+    except Exception as exc:
+        print(f"   ⚠ Report generation failed: {exc}")
 
     return 0 if overall_ok else 1
 

@@ -16,6 +16,7 @@ signal_emitters:
     should_create: true
     severity: high
     title: "canary rollback triggered"
+    trigger_datadog: true
 expected_zeroui_response:
   pills:
     - "ci-failed"

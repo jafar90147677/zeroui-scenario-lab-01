@@ -3,3 +3,6 @@ harness/_artifacts/
 # SpecStory history files (may contain sensitive data)
 .specstory/
 
+# Environment variables (may contain sensitive data)
+.env
+
