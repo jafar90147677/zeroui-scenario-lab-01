@@ -32,6 +32,36 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def validate_datadog_credentials(api_key: str, app_key: str) -> tuple[bool, str | None]:
+    """
+    Validate Datadog credentials before making API calls.
+    Returns: (is_valid, error_message)
+    Note: Validation is non-blocking - incident creation will still be attempted even if validation fails.
+    """
+    try:
+        # Try API key validation endpoint (API key only - this endpoint doesn't require app key)
+        url = "https://api.datadoghq.com/api/v1/validate"
+        headers_api = {"DD-API-KEY": api_key}
+        response_api = requests.get(url, headers=headers_api, timeout=5)
+        
+        if response_api.status_code == 200:
+            # API key is valid
+            return True, None
+        elif response_api.status_code == 403:
+            # 403 on validation endpoint might mean:
+            # 1. API key is invalid/expired
+            # 2. API key doesn't have validation endpoint permissions
+            # 3. Some Datadog accounts restrict this endpoint
+            # We'll still attempt incident creation as validation endpoint may have different permissions
+            return True, f"Validation endpoint returned 403 (may be permission-related). Will attempt incident creation anyway."
+        else:
+            # Other status codes - might be temporary issue
+            return True, f"Validation returned HTTP {response_api.status_code}, but will attempt incident creation"
+    except Exception as exc:
+        # If validation fails, we'll still try to create incident (graceful degradation)
+        return True, f"Validation check failed but will attempt incident creation: {exc}"
+
+
 def trigger_datadog_incident(
     scenario_id: str,
     severity: str,
@@ -49,6 +79,12 @@ def trigger_datadog_incident(
     
     if not datadog_api_key or not datadog_app_key:
         return False, None, "DATADOG_API_KEY or DATADOG_APP_KEY not set"
+    
+    # Validate credentials first (non-blocking - will still attempt if validation fails)
+    is_valid, validation_error = validate_datadog_credentials(datadog_api_key, datadog_app_key)
+    if not is_valid and validation_error:
+        # Log warning but continue - some Datadog accounts may have different validation behavior
+        print(f"[datadog] Warning: {validation_error}")
     
     # Datadog Incident Response API endpoint
     url = "https://api.datadoghq.com/api/v2/incidents"
@@ -101,6 +137,18 @@ def trigger_datadog_incident(
             # 2. Sends Gmail notifications (if notification rules are configured in UI)
             
             return True, incident_id, None
+        elif response.status_code == 403:
+            # Provide detailed error message for 403
+            error_detail = response.text
+            return False, None, (
+                f"HTTP 403 Forbidden when creating incident.\n"
+                f"Error details: {error_detail}\n"
+                f"Please verify:\n"
+                f"1. API key '{datadog_api_key[:10]}...' is correct and not expired\n"
+                f"2. Application key '{datadog_app_key[:10]}...' is correct and not expired\n"
+                f"3. Application key has 'Incident Management' permissions enabled\n"
+                f"4. Keys are not revoked in Datadog settings"
+            )
         else:
             error_msg = f"HTTP {response.status_code}: {response.text}"
             return False, None, error_msg
