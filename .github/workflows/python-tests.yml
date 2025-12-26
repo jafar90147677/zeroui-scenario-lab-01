@@ -27,5 +27,98 @@ jobs:
           pip install -r harness/requirements.txt
           pip install -r apps/shop-app/requirements.txt
       - name: Run pytest (shop-app)
+        id: pytest
         run: python -m pytest apps/shop-app
+        continue-on-error: true
+      - name: Create Datadog Incident on Test Failure
+        if: failure() && steps.pytest.outcome == 'failure'
+        env:
+          DATADOG_API_KEY: ${{secrets.DATADOG_API_KEY}}
+          DATADOG_APP_KEY: ${{secrets.DATADOG_APP_KEY}}
+        run: |
+          python -c "
+          import os
+          import requests
+          import json
+          from datetime import datetime
+          
+          api_key = os.getenv('DATADOG_API_KEY')
+          app_key = os.getenv('DATADOG_APP_KEY')
+          
+          if not api_key or not app_key:
+              print('[datadog] DATADOG_API_KEY or DATADOG_APP_KEY not set; skipping incident creation')
+              exit(0)
+          
+          # Get workflow context
+          workflow_name = os.getenv('GITHUB_WORKFLOW', 'python-tests')
+          run_id = os.getenv('GITHUB_RUN_ID', 'unknown')
+          run_number = os.getenv('GITHUB_RUN_NUMBER', 'unknown')
+          commit_sha = os.getenv('GITHUB_SHA', 'unknown')[:7]
+          repo = os.getenv('GITHUB_REPOSITORY', 'unknown')
+          branch = os.getenv('GITHUB_REF_NAME', 'unknown')
+          actor = os.getenv('GITHUB_ACTOR', 'unknown')
+          
+          # Build incident title
+          title = f'CI Test Failure: {workflow_name} (Run #{run_number})'
+          
+          # Build incident description
+          run_url = f'https://github.com/{repo}/actions/runs/{run_id}'
+          description = f'''CI pipeline test failure detected.
+          
+          Repository: {repo}
+          Branch: {branch}
+          Commit: {commit_sha}
+          Triggered by: {actor}
+          Workflow: {workflow_name}
+          Run Number: {run_number}
+          Run URL: {run_url}
+          
+          Tests failed in GitHub Actions CI pipeline.'''
+          
+          # Datadog Incident Response API endpoint
+          url = 'https://api.datadoghq.com/api/v2/incidents'
+          headers = {
+              'DD-API-KEY': api_key,
+              'DD-APPLICATION-KEY': app_key,
+              'Content-Type': 'application/json',
+          }
+          
+          # Map to SEV-2 (high) for CI failures
+          payload = {
+              'data': {
+                  'type': 'incidents',
+                  'attributes': {
+                      'title': title,
+                      'severity': 'SEV-2',
+                      'customer_impacted': False,
+                      'fields': {
+                          'state': {
+                              'type': 'dropdown',
+                              'value': 'declared'
+                          }
+                      }
+                  }
+              }
+          }
+          
+          try:
+              response = requests.post(url, headers=headers, json=payload, timeout=10)
+              
+              if response.status_code in (200, 201):
+                  incident_data = response.json()
+                  incident_id = incident_data.get('data', {}).get('id', 'unknown')
+                  print(f'[datadog] Incident created successfully: {incident_id}')
+                  print(f'[datadog] Incident URL: https://app.datadoghq.com/incidents/{incident_id}')
+              elif response.status_code == 403:
+                  print(f'[datadog] HTTP 403 Forbidden - check API key permissions')
+                  print(f'[datadog] Error: {response.text}')
+                  exit(0)  # Don't fail the workflow
+              else:
+                  print(f'[datadog] Failed to create incident: HTTP {response.status_code}')
+                  print(f'[datadog] Error: {response.text}')
+                  exit(0)  # Don't fail the workflow
+          except Exception as exc:
+              print(f'[datadog] Error creating incident: {exc}')
+              exit(0)  # Don't fail the workflow
+          "
 

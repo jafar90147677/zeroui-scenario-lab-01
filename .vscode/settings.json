@@ -1,0 +1,6 @@
+{
+    "yaml.schemas": {
+        "https://raw.githubusercontent.com/crowdsecurity/crowdsec-yaml-schemas/main/scenario_schema.yaml": "file:///c%3A/Users/user/zeroui-scenario-lab-01/scenarios/FM1/flag-kill-switch.yaml",
+        "https://www.schemastore.org/pre-commit-hooks.json": "file:///c%3A/Users/user/zeroui-scenario-lab-01/scenarios/FM1/canary-rollback.yaml"
+    }
+}
